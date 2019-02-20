@@ -1,7 +1,10 @@
 package com.tigerit.exam;
 
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
 import java.util.stream.Collectors;
 
 import static com.tigerit.exam.IO.*;
@@ -44,15 +47,8 @@ public class Solution implements Runnable {
 		}
 		
 		printLine(queries);
-	}
-	
-	private String collectQuery() {
-		StringBuilder builder = new StringBuilder();
-		for (int lineNumber = 0; lineNumber < QUERY_MAX_LINE_NUM; lineNumber++) {
-			builder.append(readLine());
-		}
-		readLine(); // empty input line
-		return builder.toString();
+		
+		printLine(join("table1", "table2", null, null, "col_a", "col_c"));
 	}
 	
 	private void initiateTable(Integer numberOfTables) {
@@ -80,24 +76,68 @@ public class Solution implements Runnable {
 			table.addRow(row, rowData);
 		}
 		printLine("Table :" + table);
+		tables.put(table.getName(), table);
 		
 	}
 	
+	Table join(String table1, String table2, String alias1, String alias2, String column1, String column2) {
+		Table t1 = tables.get(table1);
+		Table t2 = tables.get(table2);
+		Integer index1 = t1.getColumns().indexOf(column1);
+		Integer index2 = t2.getColumns().indexOf(column2);
+		Row[] row1 = t1.getRows();
+		Row [] row2 = t2.getRows();
+		Table result = new Table();
+		List<String> columns = new ArrayList<>();
+		columns.addAll(t1.getColumns());
+		columns.addAll(t2.getColumns());
+		result.setColumns(columns);
+		List<Row> resultRows = new ArrayList<>();
+		for (int i = 0; i < row1.length; i++) {
+			List<Integer> data1 = row1[i].getData();
+			for (int j = 0; j < row2.length; j++) {
+				List<Integer> data2 = row2[j].getData();
+				if (data1.get(index1).equals(data2.get(index2))) {
+					Row row = new Row();
+					row.addData(data1).addAll(data2);
+					resultRows.add(row);
+				}
+			}
+		}
+		result.addRows(resultRows);
+		return result;
+	}
+	
+	private String collectQuery() {
+		StringBuilder builder = new StringBuilder();
+		for (int lineNumber = 0; lineNumber < QUERY_MAX_LINE_NUM; lineNumber++) {
+			builder.append(readLine());
+		}
+		readLine(); // empty input line
+		return builder.toString();
+	}
+	
 	class Table {
-    	String name;
-    	List<String> columns;
-    	Row [] rows;
+    	private String name;
+    	private List<String> columns;
+    	private Row [] rows;
 		
-		public Table(String name, Integer totalRows) {
+		Table(String name, Integer totalRows) {
 			this.name = name;
 			this.rows = new Row [totalRows];
 		}
 		
-		public List<String> getColumns() {
+		Table() {}
+		
+		Row[] getRows() {
+			return rows;
+		}
+		
+		List<String> getColumns() {
 			return columns;
 		}
 		
-		public void setColumns(List<String> columns) {
+		void setColumns(List<String> columns) {
 			this.columns = columns;
 		}
 	    
@@ -107,6 +147,14 @@ public class Solution implements Runnable {
 	    
 	    void setName(String name) {
     		this.name = name;
+	    }
+	    
+	    void addRows(List<Row> rows) {
+			// todo check for efficiency
+			this.rows = rows.toArray(new Row[0]);
+//		    for (int i = 0; i < rows.size(); i++) {
+//			    this.rows[i] = rows.get(1);
+//		    }
 	    }
 	    
 	    void addRow(Integer index, Integer [] data) {
@@ -125,19 +173,27 @@ public class Solution implements Runnable {
 	
 	
 	class Row {
-		List<Integer> data;
+		private final List<Integer> data;
 		
-		public Row() {}
-		public Row(Integer [] data) {
+		Row() {
+			this.data = new ArrayList<>();
+		}
+		
+		Row(Integer [] data) {
 			this.data = Arrays.asList(data);
 		}
 		
-		void setData(List<Integer> data) {
-			this.data = data;
+		List<Integer> getData() {
+			return data;
 		}
 		
-		public List<Integer> getData() {
-			return data;
+		List<Integer> addData(Integer [] data) {
+			return addData(Arrays.asList(data));
+		}
+		
+		List<Integer> addData(List<Integer> data) {
+			this.data.addAll(data);
+			return this.data;
 		}
 		
 		@Override
