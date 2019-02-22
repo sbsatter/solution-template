@@ -18,11 +18,14 @@ public class Solution implements Runnable {
 	private static final int QUERY_MAX_LINE_NUM = 4;
 	private static final HashMap<String, Table> tables = new HashMap<>();
 	private static final Pattern pattern;
+	private static final Pattern tableColumnIdentifierPattern ;
 
 	static {
 		//language=RegExp
 		String regEx = "select ([a-z0-9_,.\\s*]+) from ([a-z0-9_]+)(?:\\s+([a-z0-9_]+))? join ([a-z0-9_]+)(?:\\s+([a-z0-9_]+))? on ([a-z0-9_]+)\\.([a-z0-9_]+)\\s*([=<>])\\s*([a-z0-9_]+)\\.([a-z0-9_]+)\\s*";
 		pattern = Pattern.compile(regEx);
+		// finds the columns selected in each round
+		tableColumnIdentifierPattern = Pattern.compile("(?:([a-z0-9_]+)\\.([a-z0-9_]+),?)");
 	}
 
 	@Override
@@ -48,8 +51,10 @@ public class Solution implements Runnable {
 
 		for (int queryNumber = 0; queryNumber < numberOfQueries; queryNumber++) {
 			String query = collectQuery();
-			Join join = parseQuery(query.toLowerCase());
-			printLine(join(join));
+			JoinOperation joinOperation = parseQuery(query.toLowerCase());
+			if (joinOperation != null) {
+				printLine(join(joinOperation));
+			}
 		}
 
 
@@ -59,14 +64,14 @@ public class Solution implements Runnable {
 	}
 
 
-	private Join parseQuery(String query) {
+	private JoinOperation parseQuery(String query) {
 		Matcher matcher = pattern.matcher(query);
 		if (matcher.matches()) {
 			printLine("Found groups: " + matcher.groupCount());
 			for (int i = 0; i <= matcher.groupCount(); i++) {
 				printLine(String.format("Group no: %d => %s", i, matcher.group(i)));
 			}
-			return new Join(matcher);
+			return new JoinOperation(matcher);
 		}
 		return null;
 	}
@@ -100,18 +105,22 @@ public class Solution implements Runnable {
 
 	}
 
-	Table join(Join join) {
-		Table t1 = tables.get(join.getTable1());
-		Table t2 = tables.get(join.getTable2());
-		Integer index1 = t1.getColumns().indexOf(join.getLeftTableColumn());
-		Integer index2 = t2.getColumns().indexOf(join.getRightTableColumn());
-		Row [] row1 = t1.getRows();
-		Row [] row2 = t2.getRows();
+	private Table join(JoinOperation joinOperation) {
+		Table primaryTable = tables.get(joinOperation.getTable1()); // Table based on which the join op is performed
+		Table secondaryTable = tables.get(joinOperation.getTable2()); // Table which joins with the primary table
+		String primaryTableJoinColumn = joinOperation.getLeftTable().equals(joinOperation.getTable1()) ? joinOperation.getLeftTableColumn() : joinOperation.getRightTableColumn();
+		String secondaryTableJoinColumn = joinOperation.getRightTable().equals(joinOperation.getTable2()) ? joinOperation.getRightTableColumn() : joinOperation.getLeftTableColumn();
+		Row [] row1 = primaryTable.getRows();
+		Row [] row2 = secondaryTable.getRows();
 		Table result = new Table();
 		List<String> columns = new ArrayList<>();
-		columns.addAll(t1.getColumns());
-		columns.addAll(t2.getColumns());
+		List<String> primaryTableColumns = getRequiredColumns(primaryTable, joinOperation);
+		List<String> secondaryTableColumns = getRequiredColumns(secondaryTable, joinOperation);
+		columns.addAll(primaryTableColumns);
+		columns.addAll(secondaryTableColumns);
 		result.setColumns(columns);
+		Integer index1 = primaryTable.getColumns().indexOf(primaryTableJoinColumn);
+		Integer index2 = secondaryTable.getColumns().indexOf(secondaryTableJoinColumn);
 		List<Row> resultRows = new ArrayList<>();
 		for (int i = 0; i < row1.length; i++) {
 			List<Integer> data1 = row1[i].getData();
@@ -119,7 +128,7 @@ public class Solution implements Runnable {
 				List<Integer> data2 = row2[j].getData();
 				if (data1.get(index1).equals(data2.get(index2))) {
 					Row row = new Row();
-					row.addData(data1).addAll(data2);
+					row.addData(getSelectedDataIndices(primaryTable.getColumns(), primaryTableColumns, data1)).addAll(getSelectedDataIndices(secondaryTable.getColumns(), secondaryTableColumns, data2));
 					resultRows.add(row);
 				}
 			}
@@ -128,33 +137,30 @@ public class Solution implements Runnable {
 		return result;
 	}
 
-//Table join(String table1, String table2, String alias1, String alias2, String column1, String column2) {
-//		Table t1 = tables.get(table1);
-//		Table t2 = tables.get(table2);
-//		Integer index1 = t1.getColumns().indexOf(column1);
-//		Integer index2 = t2.getColumns().indexOf(column2);
-//		Row [] row1 = t1.getRows();
-//		Row [] row2 = t2.getRows();
-//		Table result = new Table();
-//		List<String> columns = new ArrayList<>();
-//		columns.addAll(t1.getColumns());
-//		columns.addAll(t2.getColumns());
-//		result.setColumns(columns);
-//		List<Row> resultRows = new ArrayList<>();
-//		for (int i = 0; i < row1.length; i++) {
-//			List<Integer> data1 = row1[i].getData();
-//			for (int j = 0; j < row2.length; j++) {
-//				List<Integer> data2 = row2[j].getData();
-//				if (data1.get(index1).equals(data2.get(index2))) {
-//					Row row = new Row();
-//					row.addData(data1).addAll(data2);
-//					resultRows.add(row);
+	private List<String> getRequiredColumns(Table table, JoinOperation joinOperation) {
+		String selected = joinOperation.getColumns();
+		if (selected.equals("*")) {
+			return table.getColumns();
+		}
+		Matcher matcher = tableColumnIdentifierPattern.matcher(selected);
+		matcher.reset();
+		List<String> list = new ArrayList<>();
+		while (matcher.find()) {
+			if (joinOperation.resolveTableName(matcher.group(1)).equals(table.getName())) {
+				String colName = matcher.group(2);
+				list.add(colName);
+			}
+		}
+//		if (matcher.matches()) {
+//			for (int i = 1; i <= matcher.groupCount(); i++) {
+//				String colName = matcher.group(i);
+//				if (columns.contains(colName)) {
+//					list.add(colName);
 //				}
 //			}
 //		}
-//		result.addRows(resultRows);
-//		return result;
-//	}
+		return list;
+	}
 
 	private String collectQuery() {
 		StringBuilder builder = new StringBuilder();
@@ -240,6 +246,12 @@ public class Solution implements Runnable {
 			return data;
 		}
 
+		List<Integer> getData(List<Integer> selectedDataIndices) {
+			List<Integer> preparedData = new ArrayList<>();
+			selectedDataIndices.iterator().forEachRemaining(idx -> preparedData.add(data.get(idx)));
+			return preparedData;
+		}
+
 		List<Integer> addData(Integer [] data) {
 			return addData(Arrays.asList(data));
 		}
@@ -257,7 +269,7 @@ public class Solution implements Runnable {
 		}
 	}
 
-	class Join {
+	class JoinOperation {
 		private String query;
 		private String columns;
 		private String table1;
@@ -265,22 +277,22 @@ public class Solution implements Runnable {
 		private String tableAlias1;
 		private String tableAlias2;
 		private String leftTable;
-		private String rightTable;
-		private String operator;
 		private String leftTableColumn;
+		private String operator;
+		private String rightTable;
 		private String rightTableColumn;
 
-		Join(Matcher matcher) {
+		JoinOperation(Matcher matcher) {
 			this.query = matcher.group(0);
 			this.columns = matcher.group(1);
 			this.table1 = matcher.group(2);
-			this.table2 = matcher.group(4);
 			this.tableAlias1 = matcher.group(3);
+			this.table2 = matcher.group(4);
 			this.tableAlias2 = matcher.group(5);
 			this.leftTable = matcher.group(6);
-			this.rightTable = matcher.group(9);
-			this.operator = matcher.group(8);
 			this.leftTableColumn = matcher.group(7);
+			this.operator = matcher.group(8);
+			this.rightTable = matcher.group(9);
 			this.rightTableColumn = matcher.group(10);
 		}
 
@@ -290,6 +302,14 @@ public class Solution implements Runnable {
 
 		public void setQuery(String query) {
 			this.query = query;
+		}
+
+		public String getColumns() {
+			return columns;
+		}
+
+		public void setColumns(String columns) {
+			this.columns = columns;
 		}
 
 		public String getTable1() {
@@ -325,7 +345,7 @@ public class Solution implements Runnable {
 		}
 
 		public String getLeftTable() {
-			return leftTable;
+			return resolveTableName(this.leftTable);
 		}
 
 		public void setLeftTable(String leftTable) {
@@ -333,7 +353,7 @@ public class Solution implements Runnable {
 		}
 
 		public String getRightTable() {
-			return rightTable;
+			return resolveTableName(this.rightTable);
 		}
 
 		public void setRightTable(String rightTable) {
@@ -363,5 +383,37 @@ public class Solution implements Runnable {
 		public void setRightTableColumn(String rightTableColumn) {
 			this.rightTableColumn = rightTableColumn;
 		}
+
+
+		private String resolveTableName(String tableName) {
+			int empty = isEmpty(this.tableAlias1, this.tableAlias2);
+			if (empty == 0) {
+				// aliases are empty, that implies the table name is provided
+				return tableName;
+			} else if (tableName.equals(tableAlias1)) {
+				return table1;
+			} else {
+				return table2;
+			}
+		}
+	}
+
+	private int isEmpty(String ... args) {
+		int result = 0;
+		for (String str :
+				args) {
+			int score = (str == null || str.trim().isEmpty())? 0:1;
+			result = (result << 1) | score;
+		}
+		return result;
+	}
+
+	private List<Integer> getSelectedDataIndices(List<String> allColumns, List<String> selectedColumns, List<Integer> data) {
+		List<Integer> selectedData = new ArrayList<>();
+		for (int i = 0; i < selectedColumns.size(); i++) {
+			int index = allColumns.indexOf(selectedColumns.get(i));
+			selectedData.add(data.get(index));
+		}
+		return selectedData;
 	}
 }
