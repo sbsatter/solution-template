@@ -78,8 +78,9 @@ public class Solution implements Runnable {
 
 	private void initiateTable(Integer numberOfTables) {
 		// dimensions -> row, cols
+		String tableName = readLine();
 		int[] dimensions = Arrays.stream(readLine().split("\\s")).mapToInt(Integer::parseInt).toArray();
-		Table table = new Table(readLine(), dimensions[0]);
+		Table table = new Table(tableName, dimensions[0]);
 
 		printLine(String.format("TEST: Dimensions: %d, %d", dimensions[0], dimensions[1]));
 		printLine(String.format("TEST: Table name: %s", table.getName()));
