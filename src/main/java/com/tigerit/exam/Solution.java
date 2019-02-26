@@ -167,7 +167,7 @@ public class Solution implements Runnable {
 	private String collectQuery() {
 		StringBuilder builder = new StringBuilder();
 		for (int lineNumber = 0; lineNumber < QUERY_MAX_LINE_NUM; lineNumber++) {
-			builder.append(readLine().trim().trim()).append(" "); // read trimmed query lines
+			builder.append(readLine().trim()).append(" "); // read trimmed query lines
 		}
 		readLine(); // empty input line
 		return builder.toString();
