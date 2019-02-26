@@ -6,8 +6,8 @@ package com.tigerit.exam;
  */
 public class CommandLineApp {
     public static void main(String... args) {
-        System.out.println("Running Solution ...");
+//        System.out.println("Running Solution ...");
         new Solution().run();
-        System.out.println("Ending Process ...");
+//        System.out.println("Ending Process ...");
     }
 }
