@@ -20,7 +20,7 @@ public class IO {
     public static String readLine() {
         String value;
         try {
-            value = reader.readLine();
+            value = reader.readLine().trim();
         } catch (IOException ex) {
             value = null;
         }

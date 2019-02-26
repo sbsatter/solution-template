@@ -25,7 +25,7 @@ public class Solution implements Runnable {
 		String regEx = "select ([a-z0-9_,.\\s*]+) from ([a-z0-9_]+)(?:\\s+([a-z0-9_]+))? join ([a-z0-9_]+)(?:\\s+([a-z0-9_]+))? on ([a-z0-9_]+)\\.([a-z0-9_]+)\\s*([=<>])\\s*([a-z0-9_]+)\\.([a-z0-9_]+)\\s*";
 		pattern = Pattern.compile(regEx);
 		// finds the columns selected in each round
-		tableColumnIdentifierPattern = Pattern.compile("(?:([a-z0-9_]+)\\.([a-z0-9_]+),?)");
+		tableColumnIdentifierPattern = Pattern.compile("(?:([a-z0-9_]+)\\.([a-z0-9_]+|\\*),?)");
 	}
 
 	@Override
@@ -45,7 +45,7 @@ public class Solution implements Runnable {
 		for (int tableNumber = 0; tableNumber < numberOfTables; tableNumber++) {
 			initiateTable(numberOfTables);
 		}
-		printLine("Done table initialization");
+//		printLine("Done table initialization");
 
 		Integer numberOfQueries = readLineAsInteger();
 
@@ -56,10 +56,6 @@ public class Solution implements Runnable {
 				printLine(join(joinOperation));
 			}
 		}
-
-
-
-//		printLine(queries);
 //
 	}
 
@@ -67,9 +63,9 @@ public class Solution implements Runnable {
 	private JoinOperation parseQuery(String query) {
 		Matcher matcher = pattern.matcher(query);
 		if (matcher.matches()) {
-			printLine("Found groups: " + matcher.groupCount());
+//			printLine("Found groups: " + matcher.groupCount());
 			for (int i = 0; i <= matcher.groupCount(); i++) {
-				printLine(String.format("Group no: %d => %s", i, matcher.group(i)));
+//				printLine(String.format("Group no: %d => %s", i, matcher.group(i)));
 			}
 			return new JoinOperation(matcher);
 		}
@@ -78,30 +74,30 @@ public class Solution implements Runnable {
 
 	private void initiateTable(Integer numberOfTables) {
 		// dimensions -> row, cols
-		String tableName = readLine();
-		int[] dimensions = Arrays.stream(readLine().split("\\s")).mapToInt(Integer::parseInt).toArray();
+		String tableName = readLine().trim();
+		int[] dimensions = Arrays.stream(readLine().trim().split("\\s")).mapToInt(Integer::parseInt).toArray();
 		Table table = new Table(tableName, dimensions[0]);
 
-		printLine(String.format("TEST: Dimensions: %d, %d", dimensions[0], dimensions[1]));
-		printLine(String.format("TEST: Table name: %s", table.getName()));
+//		printLine(String.format("TEST: Dimensions: %d, %d", dimensions[0], dimensions[1]));
+//		printLine(String.format("TEST: Table name: %s", table.getName()));
 
-		String [] columnNames = readLine().split("\\s");
+		String [] columnNames = readLine().trim().split("\\s");
 		// todo check for optimization
 		List<String> columns = Arrays.stream(columnNames).collect(Collectors.toList());
 		table.setColumns(columns);
 
 
-		printLine("TEST: Collected column names");
+//		printLine("TEST: Collected column names");
 		for (int row = 0; row < dimensions[0]; row++) {
 			// todo check for optimization
-			String [] values = readLine().split("\\s");
+			String [] values = readLine().trim().split("\\s");
 			Integer [] rowData = new Integer[values.length];
 			for (int idx = 0; idx < rowData.length; idx++) {
 				rowData[idx] = Integer.parseInt(values[idx]);
 			}
 			table.addRow(row, rowData);
 		}
-		printLine("Table :" + table);
+//		printLine("Table :" + table);
 		tables.put(table.getName(), table);
 
 	}
@@ -115,10 +111,10 @@ public class Solution implements Runnable {
 		Row [] row2 = secondaryTable.getRows();
 		Table result = new Table();
 		List<String> columns = new ArrayList<>();
-		List<String> primaryTableColumns = getRequiredColumns(primaryTable, joinOperation);
-		List<String> secondaryTableColumns = getRequiredColumns(secondaryTable, joinOperation);
-		columns.addAll(primaryTableColumns);
-		columns.addAll(secondaryTableColumns);
+//		columns.addAll(primaryTableColumns);
+//		columns.addAll(secondaryTableColumns);
+		// populate primaryTableColumns and secondaryTableColumns
+		columns = getRequiredColumns(joinOperation);
 		result.setColumns(columns);
 		Integer index1 = primaryTable.getColumns().indexOf(primaryTableJoinColumn);
 		Integer index2 = secondaryTable.getColumns().indexOf(secondaryTableJoinColumn);
@@ -129,7 +125,7 @@ public class Solution implements Runnable {
 				List<Integer> data2 = row2[j].getData();
 				if (data1.get(index1).equals(data2.get(index2))) {
 					Row row = new Row();
-					row.addData(getSelectedDataIndices(primaryTable.getColumns(), primaryTableColumns, data1)).addAll(getSelectedDataIndices(secondaryTable.getColumns(), secondaryTableColumns, data2));
+					row.addData(getOrderedData(primaryTable.getColumns(), secondaryTable.getColumns(), columns, data1, data2));
 					resultRows.add(row);
 				}
 			}
@@ -138,35 +134,40 @@ public class Solution implements Runnable {
 		return result;
 	}
 
-	private List<String> getRequiredColumns(Table table, JoinOperation joinOperation) {
+	private List<String> getRequiredColumns(JoinOperation joinOperation) {
 		String selected = joinOperation.getColumns();
+		List<String> list = new ArrayList<>();
+		Table table1 = tables.get(joinOperation.getTable1()), table2 = tables.get(joinOperation.getTable2());
 		if (selected.equals("*")) {
-			return table.getColumns();
+			list.addAll(table1.getColumns());
+			list.addAll(table2.getColumns());
+			return list;
 		}
 		Matcher matcher = tableColumnIdentifierPattern.matcher(selected);
 		matcher.reset();
-		List<String> list = new ArrayList<>();
 		while (matcher.find()) {
-			if (joinOperation.resolveTableName(matcher.group(1)).equals(table.getName())) {
-				String colName = matcher.group(2);
+			Table temp = null;
+			if (joinOperation.resolveTableName(matcher.group(1)).equals(table1.getName())) {
+				// table 1 column
+				temp = table1;
+			} else if (joinOperation.resolveTableName(matcher.group(1)).equals(table2.getName())) {
+				// table 2 column
+				temp = table2;
+			}
+			String colName = matcher.group(2);
+			if (colName.equals("*")) {
+				list.addAll(temp.getColumns());
+			} else {
 				list.add(colName);
 			}
 		}
-//		if (matcher.matches()) {
-//			for (int i = 1; i <= matcher.groupCount(); i++) {
-//				String colName = matcher.group(i);
-//				if (columns.contains(colName)) {
-//					list.add(colName);
-//				}
-//			}
-//		}
 		return list;
 	}
 
 	private String collectQuery() {
 		StringBuilder builder = new StringBuilder();
 		for (int lineNumber = 0; lineNumber < QUERY_MAX_LINE_NUM; lineNumber++) {
-			builder.append(readLine().trim()).append(" "); // read trimmed query lines
+			builder.append(readLine().trim().trim()).append(" "); // read trimmed query lines
 		}
 		readLine(); // empty input line
 		return builder.toString();
@@ -224,10 +225,10 @@ public class Solution implements Runnable {
 		@Override
 		public String toString() {
 			StringBuilder builder = new StringBuilder();
-			columns.forEach(col -> builder.append(col).append("\t"));
+			columns.forEach(col -> builder.append(col).append(" "));
 			builder.append("\n");
 			Arrays.asList(rows).forEach(row -> builder.append(row).append("\n"));
-			return String.format("Table [%s]\n%s", this.name, builder.toString());
+			return builder.toString();
 		}
 	}
 	
@@ -265,7 +266,7 @@ public class Solution implements Runnable {
 		@Override
 		public String toString() {
 			StringBuilder builder = new StringBuilder();
-			data.forEach(integer -> builder.append(integer).append("\t"));
+			data.forEach(integer -> builder.append(integer).append(" "));
 			return builder.toString();
 		}
 	}
@@ -391,11 +392,11 @@ public class Solution implements Runnable {
 			if (empty == 0) {
 				// aliases are empty, that implies the table name is provided
 				return tableName;
-			} else if (tableName.equals(tableAlias1)) {
+			} else if (tableName.equals(tableAlias1) || tableName.equals(this.table1)) {
 				return table1;
-			} else {
+			} else if (tableName.equals(tableAlias2) || tableName.equals(this.table2)) {
 				return table2;
-			}
+			} else return ""; // Should never come to this point
 		}
 	}
 
@@ -409,12 +410,26 @@ public class Solution implements Runnable {
 		return result;
 	}
 
-	private List<Integer> getSelectedDataIndices(List<String> allColumns, List<String> selectedColumns, List<Integer> data) {
+	private List<Integer> getOrderedData(List<String> allPrimaryTableCols, List<String> allSecondaryTableCols, List<String> selectedColumns, List<Integer> primaryData, List<Integer> secondaryData) {
 		List<Integer> selectedData = new ArrayList<>();
-		for (int i = 0; i < selectedColumns.size(); i++) {
-			int index = allColumns.indexOf(selectedColumns.get(i));
+		for (String selectedColumn : selectedColumns) {
+			List<String> list;
+			List<Integer> data;
+			if (allPrimaryTableCols.contains(selectedColumn)) {
+				list = allPrimaryTableCols;
+				data = primaryData;
+			} else if (allSecondaryTableCols.contains(selectedColumn)) {
+				list = allSecondaryTableCols;
+				data = secondaryData;
+			} else {
+				// should never occur, will throw index out of bounds eventually
+				list = new ArrayList<>();
+				data = new ArrayList<>();
+			}
+			int index = list.indexOf(selectedColumn);
 			selectedData.add(data.get(index));
 		}
 		return selectedData;
 	}
+
 }
