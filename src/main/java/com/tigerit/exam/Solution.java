@@ -29,19 +29,19 @@ public class Solution implements Runnable {
 	}
 
 	@Override
-    public void run() {
+	public void run() {
 		// application entry point
-	    Integer numberOfTestCases = readLineAsInteger();
-	    // iterate over all the test cases
+		Integer numberOfTestCases = readLineAsInteger();
+		// iterate over all the test cases
 		for (int caseNumber = 1; caseNumber <= numberOfTestCases; caseNumber++) {
 			testCase(caseNumber);
 		}
-    }
-	
+	}
+
 	private void testCase(Integer caseNumber) {
 		clearTables();
-    	printLine(String.format("Test: %d", caseNumber));
-    	Integer numberOfTables = readLineAsInteger();
+		printLine(String.format("Test: %d", caseNumber));
+		Integer numberOfTables = readLineAsInteger();
 		for (int tableNumber = 0; tableNumber < numberOfTables; tableNumber++) {
 			initiateTable(numberOfTables);
 		}
@@ -98,6 +98,12 @@ public class Solution implements Runnable {
 			table.addRow(row, rowData);
 		}
 //		printLine("Table :" + table);
+
+		// TEST
+//		table.orderRowsLexicographically();
+//		printLine(table);
+
+
 		tables.put(table.getName(), table);
 
 	}
@@ -177,11 +183,11 @@ public class Solution implements Runnable {
 	private void clearTables() {
 		tables.clear();
 	}
-	
+
 	class Table {
-    	private String name;
-    	private List<String> columns;
-    	private Row [] rows;
+		private String name;
+		private List<String> columns;
+		private Row [] rows;
 
 		Table(String name, Integer totalRows) {
 			this.name = name;
@@ -202,37 +208,70 @@ public class Solution implements Runnable {
 			this.columns = columns;
 		}
 
-	    String getName() {
-    		return this.name;
-	    }
+		String getName() {
+			return this.name;
+		}
 
-	    void setName(String name) {
-    		this.name = name;
-	    }
+		void setName(String name) {
+			this.name = name;
+		}
 
-	    void addRows(List<Row> rows) {
+		void addRows(List<Row> rows) {
 			// todo check for efficiency
 			this.rows = rows.toArray(new Row[0]);
 //		    for (int i = 0; i < rows.size(); i++) {
 //			    this.rows[i] = rows.get(1);
 //		    }
-	    }
+		}
 
-	    void addRow(Integer index, Integer [] data) {
-    		rows[index] = new Row(data);
-	    }
+		void addRow(Integer index, Integer [] data) {
+			rows[index] = new Row(data);
+		}
 
 		@Override
 		public String toString() {
 			StringBuilder builder = new StringBuilder();
 			columns.forEach(col -> builder.append(col).append(" "));
 			builder.append("\n");
+			orderRowsLexicographically();
 			Arrays.asList(rows).forEach(row -> builder.append(row).append("\n"));
 			return builder.toString();
 		}
+
+		private void orderRowsLexicographically() {
+//			for (int col = 0; col < this.columns.size(); col++) {
+//				for (int row = 0; row < this.rows.length; row++) {
+				sortRows(0, 0, rows.length);
+//				}
+//			}
+		}
+
+		private void sortRows(int col, int start, int end) {
+			// selection sort implementation to order rows before printing
+
+			if (col >= columns.size()) {
+				// reached end of columns
+				return;
+			}
+			for (int i = 1; i < end - start; i++) {
+				boolean flag = false;
+				for (int row = start; row < end - i; row++) {
+					int val1 = rows[row].getData().get(col);
+					int val2 = rows[row + 1].getData().get(col);
+					if (flag = flag || (val1 > val2)) {
+						Row temp = rows[row];
+						rows[row] = rows[row + 1];
+						rows[row + 1] = temp;
+					} else if (val1 == val2) {
+						sortRows(col + 1, row, row + 2); // row + 2 since end index is exclusive
+					}
+				}
+				if (!flag) return;
+			}
+		}
 	}
-	
-	
+
+
 	class Row {
 		private final List<Integer> data;
 
