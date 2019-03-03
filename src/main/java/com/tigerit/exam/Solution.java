@@ -1,7 +1,10 @@
 package com.tigerit.exam;
 
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -76,7 +79,8 @@ public class Solution implements Runnable {
 		// dimensions -> row, cols
 		String tableName = readLine().trim();
 		int[] dimensions = Arrays.stream(readLine().trim().split("\\s")).mapToInt(Integer::parseInt).toArray();
-		Table table = new Table(tableName, dimensions[0]);
+		int numberOfRows = dimensions[1];
+		Table table = new Table(tableName, numberOfRows);
 
 //		printLine(String.format("TEST: Dimensions: %d, %d", dimensions[0], dimensions[1]));
 //		printLine(String.format("TEST: Table name: %s", table.getName()));
@@ -88,7 +92,7 @@ public class Solution implements Runnable {
 
 
 //		printLine("TEST: Collected column names");
-		for (int row = 0; row < dimensions[0]; row++) {
+		for (int row = 0; row < numberOfRows; row++) {
 			// todo check for optimization
 			String [] values = readLine().trim().split("\\s");
 			Integer [] rowData = new Integer[values.length];
@@ -232,7 +236,7 @@ public class Solution implements Runnable {
 		public String toString() {
 			StringBuilder builder = new StringBuilder();
 			columns.forEach(col -> builder.append(col).append(" "));
-			builder.append("\n");
+			builder.replace(builder.lastIndexOf(" "), builder.lastIndexOf(" ") + 1, "").append("\n");
 			orderRowsLexicographically();
 			Arrays.asList(rows).forEach(row -> builder.append(row).append("\n"));
 			return builder.toString();
@@ -245,9 +249,11 @@ public class Solution implements Runnable {
 //				}
 //			}
 		}
+		
+		
 
 		private void sortRows(int col, int start, int end) {
-			// selection sort implementation to order rows before printing
+			// bubble sort implementation to order rows before printing
 
 			if (col >= columns.size()) {
 				// reached end of columns
@@ -258,10 +264,11 @@ public class Solution implements Runnable {
 				for (int row = start; row < end - i; row++) {
 					int val1 = rows[row].getData().get(col);
 					int val2 = rows[row + 1].getData().get(col);
-					if (flag = flag || (val1 > val2)) {
+					if (val1 > val2) {
 						Row temp = rows[row];
 						rows[row] = rows[row + 1];
 						rows[row + 1] = temp;
+						flag = true;
 					} else if (val1 == val2) {
 						sortRows(col + 1, row, row + 2); // row + 2 since end index is exclusive
 					}
@@ -306,7 +313,7 @@ public class Solution implements Runnable {
 		public String toString() {
 			StringBuilder builder = new StringBuilder();
 			data.forEach(integer -> builder.append(integer).append(" "));
-			return builder.toString();
+			return builder.toString().trim();
 		}
 	}
 
